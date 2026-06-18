@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Laser Prep</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none}
+html,body{height:100%;background:#0f0f0f;color:#f0f0f0;font-family:-apple-system,'Helvetica Neue',sans-serif;overflow:hidden}
+
+.app{display:flex;flex-direction:column;height:100dvh;height:100vh}
+
+/* HEADER */
+.hdr{display:flex;align-items:center;gap:10px;padding:12px 16px;background:#111;border-bottom:1px solid #222;flex-shrink:0}
+.hex{width:26px;height:26px;background:#e8c84a;clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);flex-shrink:0}
+.hdr-text h1{font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.hdr-text p{font-size:10px;color:#555;margin-top:1px}
+
+/* PREVIEW */
+.preview{flex:1;position:relative;display:flex;align-items:center;justify-content:center;background:#080808;overflow:hidden;min-height:0}
+#cvs{max-width:100%;max-height:100%;display:none;border-radius:3px;box-shadow:0 2px 16px rgba(0,0,0,.8)}
+.empty{text-align:center;color:#2a2a2a;user-select:none;pointer-events:none}
+.empty-icon{font-size:44px;margin-bottom:10px}
+.empty p{font-size:13px;line-height:1.6}
+.badge{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.8);border:1px solid #2a2a2a;border-radius:4px;font-size:10px;padding:2px 8px;color:#555;pointer-events:none;display:none}
+.proc-overlay{position:absolute;inset:0;background:rgba(0,0,0,.78);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:10}
+.proc-overlay.show{display:flex}
+.spin{width:30px;height:30px;border:2.5px solid #222;border-top-color:#e8c84a;border-radius:50%;animation:spin .65s linear infinite;margin-bottom:8px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.proc-overlay p{font-size:11px;color:#777}
+
+/* TABS */
+.tabs{display:flex;gap:4px;padding:6px 12px;background:#0f0f0f;border-bottom:1px solid #1a1a1a;flex-shrink:0}
+.tab{background:none;border:1px solid transparent;border-radius:4px;color:#444;font-size:12px;padding:4px 14px;cursor:pointer;font-family:inherit;transition:all .15s;-webkit-appearance:none}
+.tab.on{border-color:#2e2e2e;background:#1c1c1c;color:#f0f0f0}
+.tab:disabled{opacity:.25;cursor:default}
+
+/* PANEL */
+.panel{flex-shrink:0;background:#111;border-top:1px solid #1e1e1e;overflow-y:auto;-webkit-overflow-scrolling:touch;max-height:52vh;padding:14px 16px 20px}
+
+/* UPLOAD */
+.up-wrap{position:relative;margin-bottom:4px}
+.up-btn{width:100%;background:#1a1400;border:1.5px dashed #e8c84a;border-radius:8px;padding:15px 12px;color:#e8c84a;font-size:13px;cursor:pointer;font-family:inherit;text-align:center;-webkit-appearance:none;transition:all .2s;display:block}
+.up-btn.loaded{background:#1a1a1a;border-color:#2e2e2e;color:#777}
+/* real input on top, full area, invisible */
+.up-input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer;font-size:16px}
+
+.sec{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#3a3a3a;margin:14px 0 8px}
+.sec:first-of-type{margin-top:4px}
+
+/* MODES */
+.modes{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
+.mbtn{background:#181818;border:1.5px solid #242424;border-radius:6px;padding:8px 4px;cursor:pointer;text-align:center;color:#555;font-family:inherit;-webkit-appearance:none;transition:all .15s}
+.mbtn.on{border-color:#e8c84a;background:rgba(232,200,74,.08);color:#e8c84a}
+.mi{font-size:15px;margin-bottom:2px}
+.mn{font-size:10px;font-weight:600}
+
+/* SLIDERS */
+.ctrl{margin-bottom:11px}
+.ctrl-hd{display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px}
+.ctrl-hd span{color:#666}
+.ctrl-hd b{color:#e8c84a;font-weight:700}
+input[type=range]{width:100%;height:5px;-webkit-appearance:none;appearance:none;background:#222;border-radius:3px;outline:none;cursor:pointer;margin:0}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:#e8c84a;cursor:pointer;box-shadow:0 0 0 2px rgba(232,200,74,.2)}
+
+/* TOGGLES */
+.trow{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px}
+.trow span{font-size:12px;color:#aaa}
+.tog{width:40px;height:24px;border-radius:12px;cursor:pointer;position:relative;flex-shrink:0;transition:background .2s}
+.tog.on{background:#e8c84a}
+.tog.off{background:#252525}
+.tog::after{content:'';width:18px;height:18px;border-radius:50%;background:#fff;position:absolute;top:3px;transition:left .18s;box-shadow:0 1px 3px rgba(0,0,0,.4)}
+.tog.on::after{left:19px}
+.tog.off::after{left:3px}
+
+/* ACTIONS */
+.actions{display:flex;gap:8px;margin-top:14px}
+.btn-go{flex:1;background:#e8c84a;color:#111;border:none;border-radius:6px;padding:13px;font-size:13px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;font-family:inherit;-webkit-appearance:none;transition:opacity .2s}
+.btn-go:disabled{opacity:.3;cursor:default}
+.btn-save{flex:1;background:transparent;color:#e8c84a;border:1.5px solid #e8c84a;border-radius:6px;padding:12px;font-size:13px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;font-family:inherit;-webkit-appearance:none;display:none}
+.btn-save.show{display:block}
+
+/* TOAST */
+.toast{position:fixed;bottom:32px;left:50%;transform:translateX(-50%);background:#1e1e1e;border:1px solid #333;border-radius:20px;padding:9px 18px;font-size:12px;color:#eee;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap;max-width:90vw;text-align:center}
+.toast.show{opacity:1}
+
+/* safe area */
+.panel{padding-bottom:calc(20px + env(safe-area-inset-bottom,0px))}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <div class="hdr">
+    <div class="hex"></div>
+    <div class="hdr-text">
+      <h1>Laser Prep</h1>
+      <p>手書き → レーザー彫刻用変換</p>
+    </div>
+  </div>
+
+  <!-- Preview -->
+  <div class="preview" id="preview">
+    <div class="empty" id="empty">
+      <div class="empty-icon">🖊️</div>
+      <p>下のボタンから<br>写真ライブラリを選択</p>
+    </div>
+    <canvas id="cvs"></canvas>
+    <div class="badge" id="badge"></div>
+    <div class="proc-overlay" id="proc">
+      <div class="spin"></div>
+      <p>処理中...</p>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab on"  id="tOrig"    onclick="switchTab('orig')">元画像</button>
+    <button class="tab" id="tResult"  onclick="switchTab('result')"  disabled>変換後</button>
+    <button class="tab" id="tCompare" onclick="switchTab('compare')" disabled>比較</button>
+  </div>
+
+  <!-- Controls -->
+  <div class="panel" id="panel">
+
+    <div class="sec">画像を選ぶ</div>
+    <div class="up-wrap">
+      <div class="up-btn" id="upLabel">📷 写真ライブラリから選択</div>
+      <!-- font-size:16px prevents iOS zoom; accept="image/*" opens photo library -->
+      <input class="up-input" type="file" id="fileIn" accept="image/*" capture="">
+    </div>
+
+    <div class="sec">変換モード</div>
+    <div class="modes">
+      <button class="mbtn on" data-m="lineart"   onclick="setMode(this)"><div class="mi">✏️</div><div class="mn">線画</div></button>
+      <button class="mbtn"    data-m="threshold" onclick="setMode(this)"><div class="mi">◐</div><div class="mn">2値化</div></button>
+      <button class="mbtn"    data-m="engrave"   onclick="setMode(this)"><div class="mi">🔥</div><div class="mn">彫刻強調</div></button>
+      <button class="mbtn"    data-m="halftone"  onclick="setMode(this)"><div class="mi">⚬</div><div class="mn">ハーフトーン</div></button>
+    </div>
+
+    <div class="sec">調整</div>
+    <div class="ctrl"><div class="ctrl-hd"><span>コントラスト</span><b id="vC">1.4</b></div>
+      <input type="range" id="sC" min="0.5" max="3.0" step="0.1" value="1.4" oninput="sv('C',this.value)"></div>
+    <div class="ctrl"><div class="ctrl-hd"><span>明るさ</span><b id="vB">-10</b></div>
+      <input type="range" id="sB" min="-80" max="80" step="1" value="-10" oninput="sv('B',this.value)"></div>
+    <div class="ctrl"><div class="ctrl-hd"><span>シャープネス</span><b id="vS">0.5</b></div>
+      <input type="range" id="sS" min="0" max="2.0" step="0.1" value="0.5" oninput="sv('S',this.value)"></div>
+    <div class="ctrl"><div class="ctrl-hd"><span>白黒しきい値</span><b id="vT">128</b></div>
+      <input type="range" id="sT" min="30" max="220" step="1" value="128" oninput="sv('T',this.value)"></div>
+    <div class="ctrl" id="rowH" style="display:none"><div class="ctrl-hd"><span>点の間隔</span><b id="vH">6</b>px</div>
+      <input type="range" id="sH" min="3" max="15" step="1" value="6" oninput="sv('H',this.value)"></div>
+
+    <div class="sec">オプション</div>
+    <div class="trow"><span>背景を白に統一</span><div class="tog on"  id="tgW" onclick="tog(this)"></div></div>
+    <div class="trow"><span>ノイズ除去</span>    <div class="tog on"  id="tgD" onclick="tog(this)"></div></div>
+    <div class="trow"><span>白黒反転（黒地/白線）</span><div class="tog off" id="tgI" onclick="tog(this)"></div></div>
+
+    <div class="actions">
+      <button class="btn-go"   id="btnGo"   onclick="runConvert()"  disabled>変換する</button>
+      <button class="btn-save" id="btnSave"  onclick="savePNG()">PNG 保存</button>
+    </div>
+
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── globals ────────────────────────────────────
+var G = {
+  img: null,
+  result: null,
+  tab: 'orig',
+  mode: 'lineart',
+  debounce: null
+};
+
+// ── file input (Brave/iOS photo library) ───────
+var fi = document.getElementById('fileIn');
+
+// Remove 'capture' attr so it opens library not camera by default
+// (keep accept="image/*" which is the key)
+fi.removeAttribute('capture');
+
+fi.addEventListener('change', function(e){
+  var file = e.target.files && e.target.files[0];
+  if(!file) return;
+  readFile(file);
+  // reset so same file can be picked again
+  try{ fi.value = ''; }catch(err){}
+});
+
+function readFile(file){
+  var reader = new FileReader();
+  reader.onload = function(ev){
+    var img = new Image();
+    img.onload = function(){
+      G.img = img;
+      G.result = null;
+      showCanvas();
+      document.getElementById('upLabel').textContent = '✓ 読込済 — タップで変更';
+      document.getElementById('upLabel').classList.add('loaded');
+      document.getElementById('btnGo').disabled = false;
+      document.getElementById('tResult').disabled = true;
+      document.getElementById('tCompare').disabled = true;
+      document.getElementById('btnSave').classList.remove('show');
+      switchTab('orig');
+      toast('画像を読み込みました');
+    };
+    img.onerror = function(){ toast('画像の読み込みに失敗しました'); };
+    img.src = ev.target.result;
+  };
+  reader.onerror = function(){ toast('ファイルの読み込みに失敗しました'); };
+  reader.readAsDataURL(file);
+}
+
+// ── canvas display ─────────────────────────────
+function showCanvas(){
+  document.getElementById('empty').style.display = 'none';
+  var cvs = document.getElementById('cvs');
+  cvs.style.display = 'block';
+  document.getElementById('badge').style.display = 'block';
+}
+
+function draw(){
+  if(!G.img) return;
+  var cvs = document.getElementById('cvs');
+  var ctx = cvs.getContext('2d');
+
+  if(G.tab === 'orig'){
+    cvs.width = G.img.width; cvs.height = G.img.height;
+    ctx.drawImage(G.img, 0, 0);
+    document.getElementById('badge').textContent = '元画像';
+  } else if(G.tab === 'result' && G.result){
+    cvs.width = G.result.width; cvs.height = G.result.height;
+    ctx.drawImage(G.result, 0, 0);
+    document.getElementById('badge').textContent = '変換後';
+  } else if(G.tab === 'compare' && G.result){
+    var w=G.img.width, h=G.img.height;
+    cvs.width=w; cvs.height=h;
+    ctx.drawImage(G.img, 0, 0);
+    ctx.drawImage(G.result, w/2, 0, w/2, h, w/2, 0, w/2, h);
+    ctx.strokeStyle='#e8c84a';
+    ctx.lineWidth=Math.max(2,w*.003);
+    ctx.setLineDash([8,4]);
+    ctx.beginPath(); ctx.moveTo(w/2,0); ctx.lineTo(w/2,h); ctx.stroke();
+    ctx.setLineDash([]);
+    document.getElementById('badge').textContent = '比較';
+  }
+}
+
+// ── tabs ───────────────────────────────────────
+function switchTab(t){
+  G.tab = t;
+  ['Orig','Result','Compare'].forEach(function(id){
+    var el = document.getElementById('t'+id);
+    el.classList.toggle('on', id.toLowerCase()===t);
+  });
+  draw();
+}
+
+// ── sliders ────────────────────────────────────
+function sv(k, v){
+  document.getElementById('v'+k).textContent = v;
+  liveUpdate();
+}
+
+function liveUpdate(){
+  if(!G.img || !G.result) return;
+  clearTimeout(G.debounce);
+  G.debounce = setTimeout(function(){ runConvert(true); }, 150);
+}
+
+// ── toggles ────────────────────────────────────
+function tog(el){
+  el.classList.toggle('on');
+  el.classList.toggle('off');
+  liveUpdate();
+}
+function isOn(id){ return document.getElementById(id).classList.contains('on'); }
+
+// ── mode ───────────────────────────────────────
+function setMode(btn){
+  G.mode = btn.dataset.m;
+  document.querySelectorAll('.mbtn').forEach(function(b){ b.classList.toggle('on', b===btn); });
+  document.getElementById('rowH').style.display = G.mode==='halftone' ? 'block' : 'none';
+  liveUpdate();
+}
+
+// ── convert ────────────────────────────────────
+function runConvert(silent){
+  if(!G.img) return;
+  if(!silent) document.getElementById('proc').classList.add('show');
+  // Yield to browser paint before heavy work
+  setTimeout(function(){
+    try {
+      G.result = process(G.img);
+      document.getElementById('tResult').disabled = false;
+      document.getElementById('tCompare').disabled = false;
+      document.getElementById('btnSave').classList.add('show');
+      G.tab = 'result';
+      ['Orig','Result','Compare'].forEach(function(id){
+        document.getElementById('t'+id).classList.toggle('on', id==='Result');
+      });
+      draw();
+    } catch(err){ toast('変換エラー: '+err.message); }
+    document.getElementById('proc').classList.remove('show');
+  }, 30);
+}
+
+// ── image processing ───────────────────────────
+function process(img){
+  var w=img.width, h=img.height;
+  var wc=document.createElement('canvas');
+  wc.width=w; wc.height=h;
+  var cx=wc.getContext('2d');
+
+  if(isOn('tgW')){ cx.fillStyle='#fff'; cx.fillRect(0,0,w,h); }
+  cx.drawImage(img,0,0);
+
+  var d=cx.getImageData(0,0,w,h), p=d.data;
+
+  // grayscale
+  for(var i=0;i<p.length;i+=4){
+    var g=p[i]*.299+p[i+1]*.587+p[i+2]*.114;
+    p[i]=p[i+1]=p[i+2]=g;
+  }
+
+  // contrast + brightness
+  var ct=parseFloat(document.getElementById('sC').value);
+  var br=parseInt(document.getElementById('sB').value);
+  for(var i=0;i<p.length;i+=4){
+    var v=(p[i]+br-128)*ct+128;
+    p[i]=p[i+1]=p[i+2]=v<0?0:v>255?255:v;
+  }
+  cx.putImageData(d,0,0);
+
+  // sharpen
+  var sh=parseFloat(document.getElementById('sS').value);
+  if(sh>0){ d=unsharp(cx,w,h,sh); p=d.data; }
+  else { d=cx.getImageData(0,0,w,h); p=d.data; }
+
+  var thr=parseInt(document.getElementById('sT').value);
+
+  if(G.mode==='lineart')      d=sobel(p,w,h,thr);
+  else if(G.mode==='threshold'){ thresh(p,thr); cx.putImageData(d,0,0); d=cx.getImageData(0,0,w,h); }
+  else if(G.mode==='engrave') { scurve(p); cx.putImageData(d,0,0); d=cx.getImageData(0,0,w,h); }
+  else if(G.mode==='halftone'){
+    var sp=parseInt(document.getElementById('sH').value);
+    d=halftone(p,w,h,sp);
+  }
+
+  if(isOn('tgD') && G.mode!=='halftone') d=denoise(d.data,w,h);
+
+  if(isOn('tgI')){
+    var q=d.data;
+    for(var i=0;i<q.length;i+=4){ q[i]=255-q[i]; q[i+1]=255-q[i+1]; q[i+2]=255-q[i+2]; }
+  }
+
+  var out=document.createElement('canvas');
+  out.width=w; out.height=h;
+  out.getContext('2d').putImageData(d,0,0);
+  return out;
+}
+
+function thresh(p,t){ for(var i=0;i<p.length;i+=4){ var v=p[i]<t?0:255; p[i]=p[i+1]=p[i+2]=v; } }
+
+function scurve(p){
+  for(var i=0;i<p.length;i+=4){
+    var v=p[i]/255;
+    v=v<.5?2*v*v:1-Math.pow(-2*v+2,2)/2;
+    p[i]=p[i+1]=p[i+2]=Math.round(v*255);
+  }
+}
+
+function sobel(p,w,h,thr){
+  var r=new Uint8ClampedArray(w*h*4);
+  for(var i=0;i<r.length;i+=4){r[i]=r[i+1]=r[i+2]=255;r[i+3]=255;}
+  for(var y=1;y<h-1;y++){
+    for(var x=1;x<w-1;x++){
+      var tl=p[((y-1)*w+x-1)*4],tm=p[((y-1)*w+x)*4],tr=p[((y-1)*w+x+1)*4];
+      var ml=p[(y*w+x-1)*4],mr=p[(y*w+x+1)*4];
+      var bl=p[((y+1)*w+x-1)*4],bm=p[((y+1)*w+x)*4],br=p[((y+1)*w+x+1)*4];
+      var gx=(-tl+tr)+2*(-ml+mr)+(-bl+br);
+      var gy=(-tl-2*tm-tr)+(bl+2*bm+br);
+      var mag=Math.sqrt(gx*gx+gy*gy); if(mag>255)mag=255;
+      var v=mag>(255-thr)?0:255;
+      var idx=(y*w+x)*4;
+      r[idx]=r[idx+1]=r[idx+2]=v;r[idx+3]=255;
+    }
+  }
+  return new ImageData(r,w,h);
+}
+
+function gaussBlur(p,w,h){
+  var k=[1,2,1,2,4,2,1,2,1];
+  var o=new Uint8ClampedArray(p.length);
+  for(var y=0;y<h;y++){
+    for(var x=0;x<w;x++){
+      var s=0;
+      for(var ky=-1;ky<=1;ky++) for(var kx=-1;kx<=1;kx++){
+        var sy=y+ky<0?0:y+ky>=h?h-1:y+ky;
+        var sx=x+kx<0?0:x+kx>=w?w-1:x+kx;
+        s+=p[(sy*w+sx)*4]*k[(ky+1)*3+(kx+1)];
+      }
+      var i=(y*w+x)*4; o[i]=o[i+1]=o[i+2]=Math.round(s/16); o[i+3]=255;
+    }
+  }
+  return o;
+}
+
+function unsharp(cx,w,h,amt){
+  var od=cx.getImageData(0,0,w,h);
+  var bl=gaussBlur(od.data,w,h);
+  var r=new Uint8ClampedArray(od.data.length);
+  for(var i=0;i<od.data.length;i+=4){
+    for(var c=0;c<3;c++){
+      var v=od.data[i+c]+(od.data[i+c]-bl[i+c])*amt;
+      r[i+c]=v<0?0:v>255?255:v;
+    }
+    r[i+3]=255;
+  }
+  return new ImageData(r,w,h);
+}
+
+function halftone(p,w,h,sp){
+  var r=new Uint8ClampedArray(w*h*4);
+  for(var i=0;i<r.length;i+=4){r[i]=r[i+1]=r[i+2]=255;r[i+3]=255;}
+  for(var y=0;y<h;y+=sp){
+    for(var x=0;x<w;x+=sp){
+      var sum=0,cnt=0;
+      for(var dy=0;dy<sp&&y+dy<h;dy++) for(var dx=0;dx<dx&&x+dx<w;dx++){sum+=p[((y+dy)*w+(x+dx))*4];cnt++;}
+      if(!cnt) continue;
+      var maxR=sp*.5*(1-(sum/cnt)/255);
+      var cx2=x+sp/2,cy2=y+sp/2;
+      for(var dy=-sp;dy<=sp;dy++) for(var dx=-sp;dx<=sp;dx++){
+        var px=Math.round(cx2+dx),py=Math.round(cy2+dy);
+        if(px<0||px>=w||py<0||py>=h) continue;
+        if(Math.sqrt(dx*dx+dy*dy)<=maxR){var i=(py*w+px)*4;r[i]=r[i+1]=r[i+2]=0;}
+      }
+    }
+  }
+  return new ImageData(r,w,h);
+}
+
+function denoise(p,w,h){
+  var r=new Uint8ClampedArray(p);
+  for(var y=1;y<h-1;y++) for(var x=1;x<w-1;x++){
+    var i=(y*w+x)*4;
+    if(p[i]<200){
+      var dk=0;
+      for(var dy=-1;dy<=1;dy++) for(var dx=-1;dx<=1;dx++){
+        if(!dx&&!dy) continue;
+        if(p[((y+dy)*w+(x+dx))*4]<200) dk++;
+      }
+      if(dk===0){r[i]=r[i+1]=r[i+2]=255;}
+    }
+  }
+  return new ImageData(r,w,h);
+}
+
+// ── save PNG (Brave/iOS対応) ───────────────────
+function savePNG(){
+  if(!G.result) return;
+  var url = G.result.toDataURL('image/png');
+
+  // Try standard download link first
+  try {
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'laser_' + G.mode + '_' + Date.now() + '.png';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    toast('保存しました（ダウンロードフォルダを確認）');
+    return;
+  } catch(e){}
+
+  // Fallback: open in new tab → long press to save
+  var w2 = window.open();
+  if(w2){
+    w2.document.write(
+      '<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width">' +
+      '<title>画像を保存</title></head><body style="margin:0;background:#000;display:flex;' +
+      'flex-direction:column;align-items:center;padding:20px;min-height:100vh">' +
+      '<p style="color:#fff;font-size:14px;margin-bottom:16px;font-family:-apple-system,sans-serif;text-align:center">' +
+      '画像を長押し → 「写真に追加」または「保存」</p>' +
+      '<img src="'+url+'" style="max-width:100%;border-radius:6px"></body></html>'
+    );
+    w2.document.close();
+  } else {
+    toast('ポップアップをONにしてください');
+  }
+}
+
+// ── toast ──────────────────────────────────────
+function toast(msg){
+  var el=document.getElementById('toast');
+  el.textContent=msg;
+  el.classList.add('show');
+  setTimeout(function(){el.classList.remove('show');},2500);
+}
+</script>
+</body>
+</html>
